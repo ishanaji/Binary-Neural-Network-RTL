@@ -1,70 +1,94 @@
 # /// script
-# requires-python = ">=3.14"
-# dependencies = [
-#     "numpy>=2.5.4",
-# ]
+# requires-python = ">=3.12"
+# dependencies = []
 # ///
+"""Golden reference model for the 64 -> 32 -> 10 binary neural network.
 
-import numpy as np
-# print(np.bitwise_xor(5,2))
+Checks every test image against data/expected.hex (hidden bits and class)
+and reports accuracy against data/test_y.txt.
 
-def bnn_neuron(a:str, b:str, bitwidth:int = 64) -> int:
-    a_int = int(a, 16)
-    b_int = int(b, 16)
+Run from the kit folder:  uv run python/bnn_ref.py
+"""
+from pathlib import Path
 
-    xor_bitwise = a_int ^ b_int
+DATA = Path(__file__).resolve().parent.parent / "data"
+
+
+def load_hex(name: str) -> list[int]:
+    """Read a file with one hex number per line into a list of ints."""
+    with open(DATA / name) as f:
+        return [int(s, 16) for s in f.read().split()]
+
+
+def load_expected() -> list[tuple[int, int]]:
+    """Read expected.hex: each line is '<hidden hex> <class>'."""
+    expected = []
+    with open(DATA / "expected.hex") as f:
+        for line in f:
+            if line.strip():
+                h_hex, y_str = line.split()
+                expected.append((int(h_hex, 16), int(y_str)))
+    return expected
+
+
+def bnn_neuron(a: int, b: int, bitwidth: int) -> int:
+    """popcount(XNOR(a, b)) over the low `bitwidth` bits."""
     mask = (1 << bitwidth) - 1
-    xnor_bitwise = xor_bitwise ^ mask
-
+    xnor_bitwise = (a ^ b) ^ mask
     return xnor_bitwise.bit_count()
 
 
-def bnn_top(in_image: np.uint64):
+def bnn_top(x: int, w1: list[int], t1: list[int], w2: list[int]):
+    """Run one image through the network. Returns (h, s, y)."""
+    # Hidden layer: h[j] = 1 if popcount(XNOR(x, W1[j])) >= T1[j]
+    h = 0
+    for j in range(len(w1)):
+        if bnn_neuron(x, w1[j], 64) >= t1[j]:
+            h |= 1 << j
 
-    # Hidden Layer outputs
-    h = np.uint32()
-    f = open("../data/w1.hex", "r")
-    w1 = f.readlines()
-    f = open("../data/t1.hex", "r")
-    t1 = f.readlines()
-    for j in range(32):
-        if bnn_neuron(f"{in_image:x}", w1[j], 64) >= int(t1[j],16):
-            h += 1<<j
+    # Output layer: s[k] = popcount(XNOR(h, W2[k]))
+    s = [bnn_neuron(h, w2[k], 32) for k in range(len(w2))]
 
-    # Output Layer
-    s = [0 for i in range(10)]
-    f = open("../data/w2.hex", "r")
-    w2 = f.readlines()
-    for k in range(10):
-        s[k] = bnn_neuron(f"{h:x}", w2[k], 32)
-    return h, s.index(max(s))
+    # Class: index of the largest score; index() returns the lowest on a tie
+    y = s.index(max(s))
+    return h, s, y
 
 
-if __name__ == '__main__':
+def main():
+    w1 = load_hex("w1.hex")
+    t1 = load_hex("t1.hex")
+    w2 = load_hex("w2.hex")
+    xs = load_hex("test_x.hex")
+    expected = load_expected()
+    with open(DATA / "test_y.txt") as f:
+        labels = [int(s) for s in f.read().split()]
 
-    f = open("../data/test_x.hex")
-    x_list = f.readlines()
+    assert len(w1) == 32 and len(t1) == 32 and len(w2) == 10
+    assert len(xs) == len(expected) == len(labels)
 
-    f = open("../data/test_y.txt")
-    y_list = f.readlines()
+    n_match = 0
+    n_correct = 0
+    for i, (x, (h_exp, y_exp), label) in enumerate(zip(xs, expected, labels)):
+        h, s, y = bnn_top(x, w1, t1, w2)
 
-    f = open("../data/expected.hex")
-    expected = f.readlines()
-    h_expected = [0 for i in range(450)]
-    y_expected = [0 for i in range(450)]
+        # Sanity check: each score counts agreements over 32 bits
+        assert all(0 <= sk <= 32 for sk in s), f"image {i}: score out of range {s}"
 
-    for i in range(450):
-        temp = expected[i].split()
-        h_expected[i] = int(temp[0],16)
-        y_expected[i] = int(temp[1])
+        if h == h_exp and y == y_exp:
+            n_match += 1
+        else:
+            print(f"MISMATCH image {i}: got h={h:08x} y={y}, "
+                  f"expected h={h_exp:08x} y={y_exp}")
 
-    accuracy_count = 0
-    for i in range(450):
-        temp = bnn_top(np.uint64(int(x_list[i], 16)))
-        
-        if temp[0] != h_expected[i] or temp[1] != y_expected[i]:
-            print("ERROR", i)
-        if temp[1] == int(y_list[i]):
-            accuracy_count += 1
-        
-    print(accuracy_count)
+        if y == label:
+            n_correct += 1
+
+    n = len(xs)
+    print(f"expected.hex: {n_match}/{n} match")
+    print(f"accuracy:     {n_correct}/{n}")
+    if n_match != n:
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
