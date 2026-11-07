@@ -1,0 +1,8 @@
+# simulation and synthesis outputs (make clean removes them)
+build/
+obj_dir/
+*.vcd
+*.fst
+*.vvp
+__pycache__/
+.venv/
