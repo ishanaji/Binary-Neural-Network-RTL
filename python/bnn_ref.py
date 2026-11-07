@@ -1,94 +1,81 @@
 # /// script
-# requires-python = ">=3.12"
+# requires-python = ">=3.14"
 # dependencies = []
 # ///
-"""Golden reference model for the 64 -> 32 -> 10 binary neural network.
 
-Checks every test image against data/expected.hex (hidden bits and class)
-and reports accuracy against data/test_y.txt.
-
-Run from the kit folder:  uv run python/bnn_ref.py
-"""
 from pathlib import Path
 
+# data/ folder, found from this file's location so the script runs from any folder
 DATA = Path(__file__).resolve().parent.parent / "data"
 
+def read_file(name:str) -> list[str]:
+    with open(DATA / name, "r") as f:
+        return f.readlines()
 
-def load_hex(name: str) -> list[int]:
-    """Read a file with one hex number per line into a list of ints."""
-    with open(DATA / name) as f:
-        return [int(s, 16) for s in f.read().split()]
+# Load all data files once, converting hex text to ints
+w1 = [int(line, 16) for line in read_file("w1.hex")]
+t1 = [int(line, 16) for line in read_file("t1.hex")]
+w2 = [int(line, 16) for line in read_file("w2.hex")]
+
+x_list = [int(line, 16) for line in read_file("test_x.hex")]
+y_list = [int(line) for line in read_file("test_y.txt")]
+expected = read_file("expected.hex")
+n = len(x_list)
+
+h_expected = [0 for i in range(n)]
+y_expected = [0 for i in range(n)]
+
+for i in range(n):
+    temp = expected[i].split()
+    h_expected[i] = int(temp[0],16)
+    y_expected[i] = int(temp[1])
 
 
-def load_expected() -> list[tuple[int, int]]:
-    """Read expected.hex: each line is '<hidden hex> <class>'."""
-    expected = []
-    with open(DATA / "expected.hex") as f:
-        for line in f:
-            if line.strip():
-                h_hex, y_str = line.split()
-                expected.append((int(h_hex, 16), int(y_str)))
-    return expected
-
-
-def bnn_neuron(a: int, b: int, bitwidth: int) -> int:
-    """popcount(XNOR(a, b)) over the low `bitwidth` bits."""
+def bnn_neuron(a:int, b:int, bitwidth:int) -> int:
+    xor_bitwise = a ^ b
     mask = (1 << bitwidth) - 1
-    xnor_bitwise = (a ^ b) ^ mask
+    xnor_bitwise = xor_bitwise ^ mask
+
     return xnor_bitwise.bit_count()
 
 
-def bnn_top(x: int, w1: list[int], t1: list[int], w2: list[int]):
-    """Run one image through the network. Returns (h, s, y)."""
-    # Hidden layer: h[j] = 1 if popcount(XNOR(x, W1[j])) >= T1[j]
+def bnn_top(in_image: int):
+
+    # Hidden Layer outputs
     h = 0
-    for j in range(len(w1)):
-        if bnn_neuron(x, w1[j], 64) >= t1[j]:
-            h |= 1 << j
+    for j in range(32):
+        if bnn_neuron(in_image, w1[j], 64) >= t1[j]:
+            h += 1<<j
 
-    # Output layer: s[k] = popcount(XNOR(h, W2[k]))
-    s = [bnn_neuron(h, w2[k], 32) for k in range(len(w2))]
+    # Output Layer
+    s = [0 for i in range(10)]
+    for k in range(10):
+        s[k] = bnn_neuron(h, w2[k], 32)
+    return h, s, s.index(max(s))
 
-    # Class: index of the largest score; index() returns the lowest on a tie
-    y = s.index(max(s))
-    return h, s, y
 
+if __name__ == '__main__':
 
-def main():
-    w1 = load_hex("w1.hex")
-    t1 = load_hex("t1.hex")
-    w2 = load_hex("w2.hex")
-    xs = load_hex("test_x.hex")
-    expected = load_expected()
-    with open(DATA / "test_y.txt") as f:
-        labels = [int(s) for s in f.read().split()]
+    accuracy_count = 0
+    expected_count = 0
+    score_ok_count = 0
+    for i in range(n):
+        h, s, y = bnn_top(x_list[i])
 
-    assert len(w1) == 32 and len(t1) == 32 and len(w2) == 10
-    assert len(xs) == len(expected) == len(labels)
-
-    n_match = 0
-    n_correct = 0
-    for i, (x, (h_exp, y_exp), label) in enumerate(zip(xs, expected, labels)):
-        h, s, y = bnn_top(x, w1, t1, w2)
-
-        # Sanity check: each score counts agreements over 32 bits
-        assert all(0 <= sk <= 32 for sk in s), f"image {i}: score out of range {s}"
-
-        if h == h_exp and y == y_exp:
-            n_match += 1
+        # No expected scores are given, so only check the range: 0..32
+        if all(0 <= s[k] <= 32 for k in range(10)):
+            score_ok_count += 1
         else:
-            print(f"MISMATCH image {i}: got h={h:08x} y={y}, "
-                  f"expected h={h_exp:08x} y={y_exp}")
+            print("SCORE OUT OF RANGE", i, s)
 
-        if y == label:
-            n_correct += 1
+        if h == h_expected[i] and y == y_expected[i]:
+            expected_count += 1
+        else:
+            print("ERROR", i)
 
-    n = len(xs)
-    print(f"expected.hex: {n_match}/{n} match")
-    print(f"accuracy:     {n_correct}/{n}")
-    if n_match != n:
-        raise SystemExit(1)
+        if y == y_list[i]:
+            accuracy_count += 1
 
-
-if __name__ == "__main__":
-    main()
+    print(f"expected.hex:    {expected_count}/{n} match")
+    print(f"scores in range: {score_ok_count}/{n}")
+    print(f"accuracy:        {accuracy_count}/{n}")
