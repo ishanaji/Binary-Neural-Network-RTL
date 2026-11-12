@@ -10,4 +10,8 @@ module bnn_neuron #(parameter N = 64, parameter W = $clog2(N+1)) (
     output wire         fire
 );
     // TODO
+    wire[N-1:0] xnor_xw;
+    assign xnor_xw = x ~^ w;
+    popcount #(.N(N), .W(W)) pop1(xnor_xw, score);
+    assign fire = (score >= thresh);
 endmodule

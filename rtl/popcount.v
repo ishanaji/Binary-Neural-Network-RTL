@@ -8,7 +8,9 @@ module popcount #(parameter N = 64, parameter W = $clog2(N+1)) (
     always@(*) begin
         count = 0;
         for(i=0; i<N; i=i+1) begin
-            count = count + in[i];
+            //in[i] is 1-bit, so lint threw some warning, so I zero-extended it, 
+            //harmless warning though as test_popcount passed.
+            count = count + {{(W-1){1'b0}}, in[i]};
         end
     end
 endmodule

@@ -11,8 +11,8 @@ FLATTEN ?= 1
 SYNTH_OPTS = $(if $(filter 0,$(FLATTEN)),-noflatten,)
 SRC  = $(RTL)/popcount.v $(RTL)/bnn_neuron.v $(RTL)/bnn_top.v
 
-.PHONY: test test_popcount test_top lint synth wave clean
-test: test_popcount test_top
+.PHONY: test test_popcount test_neuron test_top lint synth wave clean
+test: test_popcount test_neuron test_top
 
 build:
 	mkdir -p build
@@ -20,6 +20,10 @@ build:
 test_popcount: build
 	iverilog -g2012 -o build/tb_popcount.vvp tb/tb_popcount.v $(RTL)/popcount.v
 	vvp -n build/tb_popcount.vvp
+
+test_neuron: build
+	iverilog -g2012 -o build/tb_neuron.vvp tb/tb_neuron.v $(RTL)/popcount.v $(RTL)/bnn_neuron.v
+	vvp -n build/tb_neuron.vvp
 
 test_top: build
 	iverilog -g2012 -P tb_bnn_top.P=$(P) -o build/tb_bnn_top.vvp tb/tb_bnn_top.v $(SRC)
