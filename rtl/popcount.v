@@ -4,5 +4,11 @@ module popcount #(parameter N = 64, parameter W = $clog2(N+1)) (
     input  wire [N-1:0] in,
     output reg  [W-1:0] count
 );
-    // TODO
+    integer i;
+    always@(*) begin
+        count = 0;
+        for(i=0; i<N; i=i+1) begin
+            count = count + in[i];
+        end
+    end
 endmodule
