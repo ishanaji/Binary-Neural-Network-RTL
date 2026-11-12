@@ -1,0 +1,5 @@
+# Use LF line endings everywhere, in the repo and in the working tree,
+# whatever tool (Windows or WSL) wrote the file. The toolchain (make,
+# iverilog, verilator, yosys) runs in Linux. Binary files are detected
+# automatically and left alone.
+* text=auto eol=lf
