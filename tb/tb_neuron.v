@@ -1,14 +1,6 @@
 // Testbench for bnn_neuron.
-//
-// Part 1, directed edge cases. The real data below only produces scores
-// from 16 to 48, so these cover what it never reaches: score 0 and 64
-// (all 7 output bits) and the threshold extremes 0 and 64.
-//
-// Part 2, real vectors. Every (image, hidden neuron) pair from test_x.hex
-// and w1.hex/t1.hex: 450 x 32 = 14400 checks. Expected answers come from
-// the Python golden model (python/gen_expected_tb_neuron.py).
-// Each line of data/tb_neuron.hex is: x w thresh score fire (all hex).
-// 1141 of these vectors have score == thresh, which checks >= vs >.
+// check this file before submission (LLM generated verilog testbench(from my tb_neuron.hex though) 
+// and edge cases)
 `timescale 1ns/1ps
 module tb_neuron;
     reg  [63:0] x, w;

@@ -6,3 +6,10 @@ obj_dir/
 *.vvp
 __pycache__/
 .venv/
+
+# LaTeX build files (docs/)
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.synctex.gz
