@@ -1,2 +1,5 @@
 7/11/26 11:30 AM - Initial README, Env setup, bnn_ref.py done and passes tests
 12/11/26 8:30 PM - popcount.v written, passes make test_popcount, bnn_neuron.v written, tb_neuron.v written, checks all w1.hex vs all test_x.hex, PASSES
+13/11/26 8 PM - bnn_top.v block diagrams and state diagrams made
+14/11/26 8 PM - bnn_top.v written as code, passes make test, bnn_top_param.v written
+Have to run synth and make reports left
